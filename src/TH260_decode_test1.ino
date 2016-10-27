@@ -17,9 +17,10 @@ v0.0.1 - copy from T25 test app
 #define ITRESHOLD 50          // impulse treshold +- for duration
 #define STRESHOLD 200          // space treshold +- for duration
 #define BUFF_ROW 3             // row in buffer for data
-#define DATA_LONG 32          // buffer long 32bits
-uint32_t data[BUFF_ROW] = {0,0,0}; // data buffer
-
+#define DATA_LONG 40           // buffer long 32bits
+#define CSUM_START 33             // first bit of checksum
+uint32_t data[BUFF_ROW] = {0,0,0};  // data buffer
+byte cdata[BUFF_ROW] = {0,0,0};     // data buffer
 // masks for data decode
 #define SID_MASK 0xFF000000    // mask sensore id bits 25-32
 #define SID_SHIFT 24           // move SID bits to low bits
@@ -32,7 +33,7 @@ byte BATT = 0;                 // batery status
 byte CHANEL = 0;               // chanel
 #define TEM_MASK 0x000FFF00    // mask for temperature 12b 9-20
 #define TEM_SHIFT 8            // move temperature bits
-uint16_t TEMP = 0;             // float temperature
+float TEMP = 0;                // float temperature
 #define HUM_MASK 0x000000FF    // mask for humidity 1-8
 #define HUM_SHIFT 0            // move humidity bits
 byte HUMI = 0;                 // humidity
@@ -45,6 +46,7 @@ boolean space = LOW;             // space is starting
 boolean bit0 = LOW;
 boolean bit1 = LOW;
 byte bits = 0;                   // bits counter in data word
+byte cbits = 0;                  // bits counter from checksum
 byte repeat = 0;                 // counter for repeated reading
 byte count = 0;                  // count temperature sentences
 unsigned long lastTime = 0;      // variable for last time point
@@ -63,24 +65,33 @@ void loop()
   {
     detachInterrupt(digitalPinToInterrupt(IRQ_PIN));   // stop IRQ
     //Serial.println(uint32_t(data[0] >> 32),BIN);
-    Serial.println(data[0],BIN);
+    Serial.print(data[0],BIN);
+    Serial.print("-");
+    Serial.println(cdata[0],BIN);
+    Serial.print(data[0]);
+    Serial.print("-");
+    Serial.println(cdata[0]);
     Serial.print("SID-");
     SID = getSID(data[0]);
     Serial.print(SID,BIN); //sensor ID
     Serial.print("-B-");
     BATT = getBits(data[0], BAT_MASK, BAT_SHIFT);
     Serial.print(BATT,BIN); //Battery
-
-
     Serial.print("-CH-");
     CHANEL = getChanel(data[0]);
     Serial.print(CHANEL); //CH
     Serial.print("-TEMP ");
     TEMP = getTemp(data[0]);
-    Serial.print(TEMP);
-    Serial.print(" -HUMI ");
+    Serial.print(TEMP,1);
+    Serial.print(" : ");
+    Serial.print(getVal(data[0]));
+    Serial.print(" HUMI- ");
     HUMI = getHumi(data[0]);
     Serial.print(HUMI);
+    Serial.print(" SUM-");
+    CSUM = getSum(cdata[0]);
+    Serial.print(CSUM);
+
 
     Serial.println();
     resetTWord ();                                      // reset reading
@@ -108,12 +119,19 @@ byte getChanel(unsigned long data)
   return getBits(data, CHA_MASK, CHA_SHIFT) + 1;
 }
 
-// get temperature from data word
-float getTemp(unsigned long data)
+// get temperature value from data word
+uint16_t getVal(unsigned long data)
 {
   uint16_t t = getBits(data, TEM_MASK, TEM_SHIFT);
   t = (t >> 8) + (t & 0x0F0) + ((t & 0xF) << 8);
   return t;
+}
+
+// get temperature from data word
+float getTemp(unsigned long data)
+{
+  uint16_t v = getVal(data);
+  return ((0.054604 * (float)v) - 66.1959251569);
 }
 
 // get humidity from data word
@@ -125,10 +143,9 @@ byte getHumi(unsigned long data)
 }
 
 // get checksum from data word
-byte getSum(unsigned long data)
+byte getSum(byte data)
 {
-  byte s = getBits(data, SUM_MASK, SUM_SHIFT);
-  return s;
+  return data;
 }
 
 
@@ -164,12 +181,20 @@ void handler()
       bit1 = isImpuls(duration - BIT1, STRESHOLD);  // is it bit 1
       if(bit0 ^ bit1)                               // XOR / only one is true
       {
-        if(bits > 2)
-        {
-          bit1 && bitSet(data[repeat],DATA_LONG - bits + 1);   // write bit 1
-          bit0 && bitClear(data[repeat],DATA_LONG - bits + 1); // write bit 0
-        }
-        bits++;                                              // increment bit counter
+          if(bits > 2)          // skip first two bits
+          {
+              if (bits < CSUM_START)        // record data bits
+              {
+                  bit1 && bitSet(data[repeat],DATA_LONG - bits + 1 - 8);   // write bit 1
+                  bit0 && bitClear(data[repeat],DATA_LONG - bits + 1 - 8); // write bit 0
+              }
+              else                          // record checksum bits
+              {
+                   bit1 && bitSet(cdata[repeat],DATA_LONG - bits + 1);   // write bit 1
+                   bit0 && bitClear(cdata[repeat],DATA_LONG - bits + 1); // write bit 0
+              }
+          }
+          bits++;                                              // increment bit counter
       }
       else                                          // both or nothing bit
       {
