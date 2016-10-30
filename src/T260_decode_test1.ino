@@ -16,6 +16,8 @@ v0.0.1 - copy from T25 test app
 #define IMPULSE 500           // impulse
 #define ITRESHOLD 50          // impulse treshold +- for duration
 #define STRESHOLD 200          // space treshold +- for duration
+#define INTERCEPT -68.5045250691  // number for decode temperature t = SLOPE * v + INTERCEPT
+#define SLOPE 0.056013            // number for decode temperature
 #define BUFF_ROW 3             // row in buffer for data
 #define DATA_LONG 40           // buffer long 32bits
 #define CSUM_START 33             // first bit of checksum
@@ -90,6 +92,8 @@ void loop()
     Serial.print(HUMI);
     Serial.print(" SUM-");
     CSUM = getSum(cdata[0]);
+    Serial.print(data[0]);
+    Serial.print(' ');
     Serial.print(CSUM);
 
 
@@ -131,7 +135,7 @@ uint16_t getVal(unsigned long data)
 float getTemp(unsigned long data)
 {
   uint16_t v = getVal(data);
-  return ((0.054604 * (float)v) - 66.1959251569);
+  return ((SLOPE * (float)v) + INTERCEPT);
 }
 
 // get humidity from data word
