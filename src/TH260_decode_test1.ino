@@ -19,8 +19,9 @@ v0.0.1 - copy from T25 test app
 #define INTERCEPT -68.5045250691  // number for decode temperature t = SLOPE * v + INTERCEPT
 #define SLOPE 0.056013            // number for decode temperature
 #define BUFF_ROW 3             // row in buffer for data
-#define DATA_LONG 40           // buffer long 32bits
-#define CSUM_START 33             // first bit of checksum
+#define DATA_LONG 42           // all data bits
+#define DATA_START 2           // start data bits position
+#define CSUM_START 34          // first bit of checksum
 uint32_t data[BUFF_ROW] = {0,0,0};  // data buffer
 byte cdata[BUFF_ROW] = {0,0,0};     // data buffer
 // masks for data decode
@@ -70,9 +71,9 @@ void loop()
     Serial.print(data[0],BIN);
     Serial.print("-");
     Serial.println(cdata[0],BIN);
-    Serial.print(data[0]);
-    Serial.print("-");
-    Serial.println(cdata[0]);
+    //Serial.print(data[0]);
+    //Serial.print("-");
+    //Serial.println(cdata[0]);
     Serial.print("SID-");
     SID = getSID(data[0]);
     Serial.print(SID,BIN); //sensor ID
@@ -185,17 +186,17 @@ void handler()
       bit1 = isImpuls(duration - BIT1, STRESHOLD);  // is it bit 1
       if(bit0 ^ bit1)                               // XOR / only one is true
       {
-          if(bits > 2)          // skip first two bits
+          if(bits >= DATA_START)          // skip first two bits
           {
               if (bits < CSUM_START)        // record data bits
               {
-                  bit1 && bitSet(data[repeat],DATA_LONG - bits + 1 - 8);   // write bit 1
-                  bit0 && bitClear(data[repeat],DATA_LONG - bits + 1 - 8); // write bit 0
+                  bit1 && bitSet(data[repeat],DATA_LONG - 9 - bits);   // write bit 1
+                  bit0 && bitClear(data[repeat],DATA_LONG - 9 - bits); // write bit 0
               }
               else                          // record checksum bits
               {
-                   bit1 && bitSet(cdata[repeat],DATA_LONG - bits + 1);   // write bit 1
-                   bit0 && bitClear(cdata[repeat],DATA_LONG - bits + 1); // write bit 0
+                   bit1 && bitSet(cdata[repeat],DATA_LONG - bits - 1);   // write bit 1
+                   bit0 && bitClear(cdata[repeat],DATA_LONG - bits - 1); // write bit 0
               }
           }
           bits++;                                              // increment bit counter
@@ -204,7 +205,7 @@ void handler()
       {
         resetTWord ();                              // reset reading
       }
-      if(bits >= DATA_LONG + 2)                         // last bit was reading
+      if(bits >= DATA_LONG)                         // last bit was reading
       {
         if(repeat > 0)                              // is it temp sentence hienr then 0
         {
