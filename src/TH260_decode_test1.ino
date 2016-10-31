@@ -93,9 +93,9 @@ void loop()
     Serial.print(HUMI);
     Serial.print(" SUM-");
     CSUM = getSum(cdata[0]);
-    Serial.print(data[0]);
+    Serial.print(data[0],HEX);
     Serial.print(' ');
-    Serial.print(CSUM);
+    Serial.print(CSUM,HEX);
 
 
     Serial.println();
