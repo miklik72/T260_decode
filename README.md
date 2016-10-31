@@ -1,6 +1,7 @@
 # TH260_decode
 Sencor TH260 temperature+humidity sensor 433MHz
 
+<code>
 Times
 Pulse = 500us
 Start = 8000us
@@ -40,5 +41,5 @@ C - channel 1-3 (binary 0-2)
 T - temperature (3x4bits - reversed)
 H - humidity (2x4bits - reversed)
 S - checksum - probably
-
+</code>
 
